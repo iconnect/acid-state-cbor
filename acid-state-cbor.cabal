@@ -1,0 +1,72 @@
+name:                acid-state-cbor
+version:             0.1.0.0
+synopsis:            An adapter library for using acid-state with cborg/serialise
+-- description:
+license:             BSD3
+license-file:        LICENSE
+author:              Adam Gundry
+maintainer:          Adam Gundry <adam@well-typed.com>
+copyright:           Copyright (C) 2018 Well-Typed LLP
+category:            Database
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Data.Acid.CBOR,
+                       Data.Acid.CBOR.Internal
+  other-extensions:    TemplateHaskell
+  build-depends:       base >=4.9 && <4.10,
+                       acid-state >= 0.16 && <0.17,
+                       bytestring >=0.10 && <0.11,
+                       cborg >=0.2 && <0.3,
+                       serialise >=0.2 && <0.3,
+                       template-haskell >=2.11 && <2.12
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+
+flag build-examples
+  description: Build the examples
+  manual: True
+  default: False
+
+test-suite tests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      tests
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+  build-depends:       acid-state-cbor,
+                       acid-state,
+                       base,
+                       bytestring,
+                       mtl >=2.2 && <2.3,
+                       serialise,
+                       tasty >=1.1 && <1.2,
+                       tasty-quickcheck >=0.10 && <0.11
+
+executable HelloCBOR
+  if !flag(build-examples)
+    buildable: False
+  hs-source-dirs:      examples
+  main-is:             HelloCBOR.hs
+  build-depends:       acid-state-cbor,
+                       acid-state,
+                       base,
+                       mtl >=2.2 && <2.3,
+                       serialise
+  default-language:    Haskell2010
+
+executable MultipleBackends
+  if !flag(build-examples)
+    buildable: False
+  hs-source-dirs:      examples
+  main-is:             MultipleBackends.hs
+  build-depends:       acid-state-cbor,
+                       acid-state,
+                       base,
+                       mtl >=2.2 && <2.3,
+                       safecopy >= 0.6 && <0.10,
+                       serialise
+  default-language:    Haskell2010
