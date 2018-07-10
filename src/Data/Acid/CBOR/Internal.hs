@@ -8,16 +8,16 @@ import qualified Codec.CBOR.Encoding as CBOR
 import qualified Codec.CBOR.Read     as CBOR
 import qualified Codec.CBOR.Write    as CBOR
 import           Control.Exception (displayException)
-import           Control.Monad (unless)
+import           Control.Monad (unless, replicateM)
 import           Data.Acid.Archive as Archive (Archiver(..), Entries(..), Entry)
 import           Data.Acid.Common (Checkpoint(..))
 import           Data.Acid.Core (Serialiser(..), Tagged)
 import           Data.Acid.CRC (crc16)
 import           Data.Acid.TemplateHaskell (SerialiserSpec(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser, makeAcidicWithSerialiser')
 import qualified Data.ByteString.Lazy as Lazy
+import           Data.List (foldl1')
 import           Data.Monoid ((<>))
-import           GHC.Generics (Generic)
-import           Language.Haskell.TH (Q, Dec, Name, Type(..), instanceD, standaloneDerivD)
+import           Language.Haskell.TH (Q, Dec, Name, Type(..), ExpQ, varE, appE, litE, conE, integerL, varP, conP, normalB, valD, funD, instanceD, clause, newName)
 
 serialiseSerialiser :: CBOR.Serialise a => Serialiser a
 serialiseSerialiser = Serialiser CBOR.serialise (either (Left . displayException) Right . CBOR.deserialiseOrFail)
@@ -84,12 +84,43 @@ instance CBOR.Serialise CBOREntry where
 
 makeSerialiseInstance :: Name -> Type -> Q [Dec]
 makeSerialiseInstance eventName eventType
-    = do let ty n = AppT (ConT n) (foldl AppT (ConT eventStructName) (map VarT (allTyVarBndrNames tyvars)))
-         d1 <- instanceD (mkCxtFromTyVars [''CBOR.Serialise] tyvars context) (return (ty ''CBOR.Serialise)) []
-         d2 <- standaloneDerivD (return []) (return (ty ''Generic))
-         return [d1,d2]
+    = do let ty = AppT (ConT ''CBOR.Serialise) (foldl AppT (ConT eventStructName) (map VarT (allTyVarBndrNames tyvars)))
+         vars <- replicateM (length args) (newName "arg")
+         let encodeBody = mappendE $ (varE 'CBOR.encodeListLen `appE` litE (integerL (fromIntegral (length vars + 1))))
+                                   : (varE 'CBOR.encodeWord `appE` litE (integerL 0))
+                                   : [varE 'CBOR.encode `appE` varE var | var <- vars]
+             decodeBody = opE '(*>) (opE '(*>) (varE 'CBOR.decodeListLen) (varE 'CBOR.decodeWord))
+                                    (applicativeE (conE eventStructName) (map (const (varE 'CBOR.decode)) args))
+         d <- instanceD (mkCxtFromTyVars [''CBOR.Serialise] tyvars context) (return ty)
+                 [ funD 'CBOR.encode [clause [conP eventStructName [varP var | var <- vars ]]
+                                        (normalB encodeBody )
+                                        [] ]
+                 , valD (varP 'CBOR.decode) (normalB decodeBody) []
+                 ]
+         return [d]
     where eventStructName = toStructName eventName
-          (tyvars, context, _args, _stateType, _resultType, _isUpdate) = analyseType eventName eventType
+          (tyvars, context, args, _stateType, _resultType, _isUpdate) = analyseType eventName eventType
+
+-- | Construct an idiomatic expression (an expression in an
+-- Applicative context), i.e.
+--
+-- > applicativeE ke []             = pure ke
+-- > applicativeE ke [e1,e2,...,en] = ke <$> e1 <*> e2 ... <*> en
+applicativeE :: ExpQ -> [ExpQ] -> ExpQ
+applicativeE ke es0 =
+    case es0 of
+      []   -> varE 'pure `appE` ke
+      e:es -> app' (opE '(<$>) ke e) es
+  where
+    app' e []      = e
+    app' e (e':es) = app' (opE '(<*>) e e') es
+
+opE :: Name -> ExpQ -> ExpQ -> ExpQ
+opE n x y = varE n `appE` x `appE` y
+
+mappendE :: [ExpQ] -> ExpQ
+mappendE [] = varE 'mempty
+mappendE es = foldl1' (opE 'mappend) es
 
 serialiserSpec :: SerialiserSpec
 serialiserSpec =
