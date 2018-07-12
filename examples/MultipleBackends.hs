@@ -17,31 +17,43 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.Acid
 import           Data.Acid.CBOR
-import           Data.Acid.TemplateHaskell
 import           Data.SafeCopy
 import           Data.Typeable
 import           GHC.Generics
 import           System.Environment
 
-------------------------------------------------------
--- The Haskell structure that we want to encapsulate
-
+-- Define our state type, with a phantom type parameter to tag it with
+-- a serialisation backend.  This must be an instance of both
+-- 'Serialise' and 'SafeCopy'.
 data MultipleState s = MultipleState String
     deriving (Show, Typeable, Generic, Serialise)
 $(deriveSafeCopy 0 'base ''MultipleState)
 
 
+-- Tag types for the different backends, used to instantiate the
+-- phantom type parameter of 'MultipleState'.
 data CBORBackend = CBORBackend
-    deriving (Generic, Serialise)
-type CBORState     = MultipleState CBORBackend
-
-
 data SafeCopyBackend = SafeCopyBackend
-$(deriveSafeCopy 0 'base ''SafeCopyBackend)
+
+type CBORState     = MultipleState CBORBackend
 type SafeCopyState = MultipleState SafeCopyBackend
 
 
-------------------------------------------------------
+-- The tag types must have 'Serialise' and 'SafeCopy' instances, even
+-- though these are not used at runtime, because acid-state will end
+-- up generating instances like
+--
+-- > instance Serialise s => Serialise (WriteState s)
+-- > instance SafeCopy  s => SafeCopy  (WriteState s)
+--
+-- (it doesn't have a way to know that the constraints in the instance
+-- contexts are redundant).
+
+deriving instance Generic   CBORBackend
+deriving instance Serialise CBORBackend
+$(deriveSafeCopy 0 'base ''SafeCopyBackend)
+
+
 -- The transaction we will execute over the state.
 
 writeState :: String -> Update (MultipleState s) ()
@@ -52,12 +64,25 @@ queryState :: Query (MultipleState s) String
 queryState = do MultipleState string <- ask
                 return string
 
-$(makeEvents ['writeState, 'queryState])
-$(Data.Acid.CBOR.makeAcidicWithoutEvents ''CBORState ['writeState, 'queryState])
-$(Data.Acid.TemplateHaskell.makeAcidicWithoutEvents ''SafeCopyState ['writeState, 'queryState])
 
-------------------------------------------------------
--- This is how AcidState is used:
+-- The first makeAcidic call will generate WriteState and QueryState
+-- data types, plus a bunch of instances including
+--
+-- > instance IsAcidic CBORState
+--
+-- (which requires FlexibleInstances and TypeSynonymInstances).
+
+$(Data.Acid.CBOR.makeAcidic ''CBORState     ['writeState, 'queryState])
+
+
+-- The second makeAcidic call will notice that WriteState/QueryState
+-- have been defined and not re-define them, so it merely generates
+-- the SafeCopy instances for the methods, plus
+--
+-- > instance IsAcidic SafeCopyState
+
+$(Data.Acid.makeAcidic      ''SafeCopyState ['writeState, 'queryState])
+
 
 main :: IO ()
 main = do args <- getArgs
@@ -66,9 +91,15 @@ main = do args <- getArgs
 main' :: [String] -> IO ()
 main' args =
           case args of
-            "cbor":args'     -> withMyState @CBORBackend (main'' args')
+            "cbor"    :args' -> withMyState @CBORBackend     (main'' args')
             "safecopy":args' -> withMyState @SafeCopyBackend (main'' args')
             _                -> error "first argument should be 'cbor' or 'safecopy'"
+
+-- The following operations are polymorphic in the serialisation
+-- backend.  The function above instantiates the 's' parameter
+-- differently to choose the concrete backend type.
+withMyState :: (IsAcidic (MultipleState s), Typeable s) => (AcidState (MultipleState s) -> IO a) -> IO a
+withMyState = bracket (openLocalState (MultipleState "Hello world")) closeAcidState
 
 main'' :: (IsAcidic (MultipleState s), Typeable s) => [String] -> AcidState (MultipleState s) -> IO ()
 main'' args acid = case args of
@@ -78,6 +109,3 @@ main'' args acid = case args of
                        putStrLn "Checkpoint created"
   _              -> do update acid (WriteState (unwords args))
                        putStrLn "The state has been modified!"
-
-withMyState :: (IsAcidic (MultipleState s), Typeable s) => (AcidState (MultipleState s) -> IO a) -> IO a
-withMyState = bracket (openLocalState (MultipleState "Hello world")) closeAcidState

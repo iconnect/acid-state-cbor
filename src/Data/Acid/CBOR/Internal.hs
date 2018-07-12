@@ -13,7 +13,7 @@ import           Data.Acid.Archive as Archive (Archiver(..), Entries(..), Entry)
 import           Data.Acid.Common (Checkpoint(..))
 import           Data.Acid.Core (Serialiser(..), Tagged)
 import           Data.Acid.CRC (crc16)
-import           Data.Acid.TemplateHaskell (SerialiserSpec(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser, makeAcidicWithSerialiser')
+import           Data.Acid.TemplateHaskell (SerialiserSpec(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser)
 import qualified Data.ByteString.Lazy as Lazy
 import           Data.List (foldl1')
 import           Data.Monoid ((<>))
@@ -135,6 +135,3 @@ serialiserSpec =
 
 makeAcidic :: Name -> [Name] -> Q [Dec]
 makeAcidic = makeAcidicWithSerialiser serialiserSpec
-
-makeAcidicWithoutEvents :: Name -> [Name] -> Q [Dec]
-makeAcidicWithoutEvents = makeAcidicWithSerialiser' serialiserSpec
