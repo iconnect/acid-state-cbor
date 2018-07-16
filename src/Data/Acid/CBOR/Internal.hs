@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
 module Data.Acid.CBOR.Internal where
@@ -13,7 +14,7 @@ import           Data.Acid.Archive as Archive (Archiver(..), Entries(..), Entry)
 import           Data.Acid.Common (Checkpoint(..))
 import           Data.Acid.Core (Serialiser(..), Tagged)
 import           Data.Acid.CRC (crc16)
-import           Data.Acid.TemplateHaskell (SerialiserSpec(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser)
+import           Data.Acid.TemplateHaskell (SerialiserSpec(..), TypeAnalysis(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser)
 import qualified Data.ByteString.Lazy as Lazy
 import           Data.List (foldl1')
 import           Data.Monoid ((<>))
@@ -85,12 +86,12 @@ instance CBOR.Serialise CBOREntry where
 makeSerialiseInstance :: Name -> Type -> Q [Dec]
 makeSerialiseInstance eventName eventType
     = do let ty = AppT (ConT ''CBOR.Serialise) (foldl AppT (ConT eventStructName) (map VarT (allTyVarBndrNames tyvars)))
-         vars <- replicateM (length args) (newName "arg")
+         vars <- replicateM (length argumentTypes) (newName "arg")
          let encodeBody = mappendE $ (varE 'CBOR.encodeListLen `appE` litE (integerL (fromIntegral (length vars + 1))))
                                    : (varE 'CBOR.encodeWord `appE` litE (integerL 0))
                                    : [varE 'CBOR.encode `appE` varE var | var <- vars]
              decodeBody = opE '(*>) (opE '(*>) (varE 'CBOR.decodeListLen) (varE 'CBOR.decodeWord))
-                                    (applicativeE (conE eventStructName) (map (const (varE 'CBOR.decode)) args))
+                                    (applicativeE (conE eventStructName) (map (const (varE 'CBOR.decode)) argumentTypes))
          d <- instanceD (mkCxtFromTyVars [''CBOR.Serialise] tyvars context) (return ty)
                  [ funD 'CBOR.encode [clause [conP eventStructName [varP var | var <- vars ]]
                                         (normalB encodeBody )
@@ -98,8 +99,8 @@ makeSerialiseInstance eventName eventType
                  , valD (varP 'CBOR.decode) (normalB decodeBody) []
                  ]
          return [d]
-    where eventStructName = toStructName eventName
-          (tyvars, context, args, _stateType, _resultType, _isUpdate) = analyseType eventName eventType
+    where TypeAnalysis { tyvars, context, argumentTypes } = analyseType eventName eventType
+          eventStructName = toStructName eventName
 
 -- | Construct an idiomatic expression (an expression in an
 -- Applicative context), i.e.
