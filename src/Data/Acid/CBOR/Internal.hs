@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
@@ -12,16 +13,19 @@ import           Control.Exception (displayException)
 import           Control.Monad (unless, replicateM)
 import           Data.Acid.Archive as Archive (Archiver(..), Entries(..), Entry)
 import           Data.Acid.Common (Checkpoint(..))
-import           Data.Acid.Core (Serialiser(..), Tagged)
+import           Data.Acid.Core (Serialiser(..), MethodSerialiser(..), MethodResult, Tagged)
 import           Data.Acid.CRC (crc16)
 import           Data.Acid.TemplateHaskell (SerialiserSpec(..), TypeAnalysis(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser)
 import qualified Data.ByteString.Lazy as Lazy
 import           Data.List (foldl1')
 import           Data.Monoid ((<>))
-import           Language.Haskell.TH (Q, Dec, Name, Type(..), ExpQ, varE, appE, litE, conE, integerL, varP, conP, normalB, valD, funD, instanceD, clause, newName)
+import           Language.Haskell.TH (Q, Dec, DecQ, Name, Type(..), ExpQ, varE, appE, litE, conE, integerL, varP, conP, normalB, valD, funD, instanceD, clause, newName)
 
 serialiseSerialiser :: CBOR.Serialise a => Serialiser a
 serialiseSerialiser = Serialiser CBOR.serialise (either (Left . displayException) Right . CBOR.deserialiseOrFail)
+
+serialiseMethodSerialiser :: (CBOR.Serialise a, CBOR.Serialise (MethodResult a)) => MethodSerialiser a
+serialiseMethodSerialiser = MethodSerialiser serialiseSerialiser serialiseSerialiser
 
 checkpointSerialiseSerialiser :: CBOR.Serialise st => Serialiser (Checkpoint st)
 checkpointSerialiseSerialiser = Serialiser serialiseCheckpoint deserialiseCheckpoint
@@ -83,7 +87,7 @@ instance CBOR.Serialise CBOREntry where
     return (CBOREntry b)
 
 
-makeSerialiseInstance :: Name -> Type -> Q [Dec]
+makeSerialiseInstance :: Name -> Type -> DecQ
 makeSerialiseInstance eventName eventType
     = do let ty = AppT (ConT ''CBOR.Serialise) (foldl AppT (ConT eventStructName) (map VarT (allTyVarBndrNames tyvars)))
          vars <- replicateM (length argumentTypes) (newName "arg")
@@ -92,13 +96,12 @@ makeSerialiseInstance eventName eventType
                                    : [varE 'CBOR.encode `appE` varE var | var <- vars]
              decodeBody = opE '(*>) (opE '(*>) (varE 'CBOR.decodeListLen) (varE 'CBOR.decodeWord))
                                     (applicativeE (conE eventStructName) (map (const (varE 'CBOR.decode)) argumentTypes))
-         d <- instanceD (mkCxtFromTyVars [''CBOR.Serialise] tyvars context) (return ty)
+         instanceD (mkCxtFromTyVars [''CBOR.Serialise] tyvars context) (return ty)
                  [ funD 'CBOR.encode [clause [conP eventStructName [varP var | var <- vars ]]
                                         (normalB encodeBody )
                                         [] ]
                  , valD (varP 'CBOR.decode) (normalB decodeBody) []
                  ]
-         return [d]
     where TypeAnalysis { tyvars, context, argumentTypes } = analyseType eventName eventType
           eventStructName = toStructName eventName
 
@@ -129,7 +132,7 @@ serialiserSpec =
         { predName                 = ''CBOR.Serialise
         , checkpointSerialiserName = 'checkpointSerialiseSerialiser
         , eventSerialiserName      = 'eventSerialiseSerialiser
-        , methodSerialiserName     = 'serialiseSerialiser
+        , methodSerialiserName     = 'serialiseMethodSerialiser
         , archiverName             = 'serialiseArchiver
         , makeEventSerialiser      = makeSerialiseInstance
         }
