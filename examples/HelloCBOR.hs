@@ -54,4 +54,5 @@ main' args = withMyState $ \ acid ->
                      putStrLn "The state has been modified!"
 
 withMyState :: (AcidState (HelloCBORState ()) -> IO a) -> IO a
-withMyState = bracket (openLocalState (HelloCBORState "Hello world" ())) closeAcidState
+withMyState = bracket (openLocalState (HelloCBORState "Hello world" ()))
+                      closeAcidState

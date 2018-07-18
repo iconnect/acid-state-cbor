@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeApplications   #-}
@@ -15,8 +16,9 @@ import           Codec.Serialise
 import           Control.Exception
 import           Control.Monad.Reader
 import           Control.Monad.State
-import           Data.Acid
+import           Data.Acid (makeAcidic)
 import           Data.Acid.CBOR
+import           Data.Acid.Local (openLocalStateWithSerialiser, defaultSerialisationLayer, defaultStateDirectory)
 import           Data.SafeCopy
 import           Data.Typeable
 import           GHC.Generics
@@ -91,15 +93,20 @@ main = do args <- getArgs
 main' :: [String] -> IO ()
 main' args =
           case args of
-            "cbor"    :args' -> withMyState @CBORBackend     (main'' args')
-            "safecopy":args' -> withMyState @SafeCopyBackend (main'' args')
+            "cbor"    :args' -> withMyState @CBORBackend     serialiseSerialisationLayer (main'' args')
+            "safecopy":args' -> withMyState @SafeCopyBackend defaultSerialisationLayer   (main'' args')
             _                -> error "first argument should be 'cbor' or 'safecopy'"
 
 -- The following operations are polymorphic in the serialisation
 -- backend.  The function above instantiates the 's' parameter
 -- differently to choose the concrete backend type.
-withMyState :: (IsAcidic (MultipleState s), Typeable s) => (AcidState (MultipleState s) -> IO a) -> IO a
-withMyState = bracket (openLocalState (MultipleState "Hello world")) closeAcidState
+withMyState :: forall s a . (IsAcidic (MultipleState s), Typeable s)
+            => SerialisationLayer (MultipleState s) -> (AcidState (MultipleState s) -> IO a) -> IO a
+withMyState sl = bracket (openLocalStateWithSerialiser directory initialState sl) closeAcidState
+   where
+     initialState :: MultipleState s
+     initialState = MultipleState "Hello world"
+     directory    = defaultStateDirectory initialState
 
 main'' :: (IsAcidic (MultipleState s), Typeable s) => [String] -> AcidState (MultipleState s) -> IO ()
 main'' args acid = case args of

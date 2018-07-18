@@ -11,15 +11,24 @@ import qualified Codec.CBOR.Read     as CBOR
 import qualified Codec.CBOR.Write    as CBOR
 import           Control.Exception (displayException)
 import           Control.Monad (unless, replicateM)
+import           Data.Acid (IsAcidic, AcidState)
 import           Data.Acid.Archive as Archive (Archiver(..), Entries(..), Entry)
-import           Data.Acid.Common (Checkpoint(..))
 import           Data.Acid.Core (Serialiser(..), MethodSerialiser(..), MethodResult, Tagged)
 import           Data.Acid.CRC (crc16)
+import           Data.Acid.Local (Checkpoint(..), SerialisationLayer(..), defaultStateDirectory, openLocalStateWithSerialiser, prepareLocalStateWithSerialiser)
 import           Data.Acid.TemplateHaskell (SerialiserSpec(..), TypeAnalysis(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser)
 import qualified Data.ByteString.Lazy as Lazy
 import           Data.List (foldl1')
 import           Data.Monoid ((<>))
+import           Data.Typeable (Typeable)
 import           Language.Haskell.TH (Q, Dec, DecQ, Name, Type(..), ExpQ, varE, appE, litE, conE, integerL, varP, conP, normalB, valD, funD, instanceD, clause, newName)
+
+serialiseSerialisationLayer :: CBOR.Serialise st => SerialisationLayer st
+serialiseSerialisationLayer =
+  SerialisationLayer { checkpointSerialiser = checkpointSerialiseSerialiser
+                     , eventSerialiser      = eventSerialiseSerialiser
+                     , archiver             = serialiseArchiver
+                     }
 
 serialiseSerialiser :: CBOR.Serialise a => Serialiser a
 serialiseSerialiser = Serialiser CBOR.serialise (either (Left . displayException) Right . CBOR.deserialiseOrFail)
@@ -129,13 +138,59 @@ mappendE es = foldl1' (opE 'mappend) es
 serialiserSpec :: SerialiserSpec
 serialiserSpec =
     SerialiserSpec
-        { predName                 = ''CBOR.Serialise
-        , checkpointSerialiserName = 'checkpointSerialiseSerialiser
-        , eventSerialiserName      = 'eventSerialiseSerialiser
-        , methodSerialiserName     = 'serialiseMethodSerialiser
-        , archiverName             = 'serialiseArchiver
-        , makeEventSerialiser      = makeSerialiseInstance
+        { predName             = ''CBOR.Serialise
+        , methodSerialiserName = 'serialiseMethodSerialiser
+        , makeEventSerialiser  = makeSerialiseInstance
         }
 
 makeAcidic :: Name -> [Name] -> Q [Dec]
 makeAcidic = makeAcidicWithSerialiser serialiserSpec
+
+
+-- | Create an AcidState given an initial value.
+--
+--   This will create or resume a log found in the \"state\/[typeOf state]\/\" directory.
+openLocalState :: (Typeable st, IsAcidic st, CBOR.Serialise st)
+              => st                          -- ^ Initial state value. This value is only used if no checkpoint is
+                                             --   found.
+              -> IO (AcidState st)
+openLocalState initialState =
+  openLocalStateFrom (defaultStateDirectory initialState) initialState
+
+-- | Create an AcidState given an initial value.
+--
+--   This will create or resume a log found in the \"state\/[typeOf state]\/\" directory.
+--   The most recent checkpoint will be loaded immediately but the AcidState will not be opened
+--   until the returned function is executed.
+prepareLocalState :: (Typeable st, IsAcidic st, CBOR.Serialise st)
+                  => st                          -- ^ Initial state value. This value is only used if no checkpoint is
+                                                 --   found.
+                  -> IO (IO (AcidState st))
+prepareLocalState initialState =
+  prepareLocalStateFrom (defaultStateDirectory initialState) initialState
+
+-- | Create an AcidState given a log directory and an initial value.
+--
+--   This will create or resume a log found in @directory@.
+--   Running two AcidState's from the same directory is an error
+--   but will not result in dataloss.
+openLocalStateFrom :: (IsAcidic st, CBOR.Serialise st)
+                  => FilePath            -- ^ Location of the checkpoint and transaction files.
+                  -> st                  -- ^ Initial state value. This value is only used if no checkpoint is
+                                         --   found.
+                  -> IO (AcidState st)
+openLocalStateFrom directory initialState =
+  openLocalStateWithSerialiser directory initialState serialiseSerialisationLayer
+
+-- | Create an AcidState given a log directory and an initial value.
+--
+--   This will create or resume a log found in @directory@.
+--   The most recent checkpoint will be loaded immediately but the AcidState will not be opened
+--   until the returned function is executed.
+prepareLocalStateFrom :: (IsAcidic st, CBOR.Serialise st)
+                  => FilePath            -- ^ Location of the checkpoint and transaction files.
+                  -> st                  -- ^ Initial state value. This value is only used if no checkpoint is
+                                         --   found.
+                  -> IO (IO (AcidState st))
+prepareLocalStateFrom directory initialState =
+  prepareLocalStateWithSerialiser directory initialState serialiseSerialisationLayer

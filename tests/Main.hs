@@ -6,9 +6,9 @@ module Main (main) where
 import           TestState
 
 import           Data.Acid.Archive
-import           Data.Acid.Common
 import           Data.Acid.Core
 import           Data.Acid.CBOR.Internal
+import           Data.Acid.Local (Checkpoint(..))
 
 import qualified Codec.Serialise            as CBOR
 import qualified Codec.Serialise.Properties as CBOR
