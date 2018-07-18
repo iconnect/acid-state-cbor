@@ -138,9 +138,9 @@ mappendE es = foldl1' (opE 'mappend) es
 serialiserSpec :: SerialiserSpec
 serialiserSpec =
     SerialiserSpec
-        { predName             = ''CBOR.Serialise
-        , methodSerialiserName = 'serialiseMethodSerialiser
-        , makeEventSerialiser  = makeSerialiseInstance
+        { serialisationClassName = ''CBOR.Serialise
+        , methodSerialiserName   = 'serialiseMethodSerialiser
+        , makeEventSerialiser    = makeSerialiseInstance
         }
 
 makeAcidic :: Name -> [Name] -> Q [Dec]
