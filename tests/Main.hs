@@ -3,6 +3,7 @@
 
 module Main (main) where
 
+import           KeyValueStateMachine
 import           TestState
 
 import           Data.Acid.Archive
@@ -15,6 +16,7 @@ import qualified Codec.Serialise.Properties as CBOR
 import qualified Data.ByteString.Lazy       as Lazy
 import           Data.Coerce
 import qualified Test.Tasty                 as Tasty
+import qualified Test.Tasty.Hedgehog        as TastyH
 import qualified Test.Tasty.QuickCheck      as Tasty
 
 main :: IO ()
@@ -41,6 +43,10 @@ tests = Tasty.testGroup "Tests"
     , Tasty.testProperty "WriteState" (CBOR.hasValidFlatTerm :: WriteState () -> Bool)
     ]
   , Tasty.testProperty "Archiver round-trip" (archiverRoundTrip serialiseArchiver)
+  , Tasty.testGroup "KeyValue"
+    [ TastyH.testProperty "sequential" prop_sequential
+    , TastyH.testProperty "parallel"   prop_parallel
+    ]
   ]
 
 deriving instance Show s => Show (Checkpoint s)

@@ -33,17 +33,25 @@ flag build-examples
 
 test-suite tests
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      tests
+  hs-source-dirs:      tests, ../test/
   main-is:             Main.hs
+  other-modules:       KeyValueStateMachine
+                       TestState
   default-language:    Haskell2010
   ghc-options:         -Wall
   build-depends:       acid-state-cbor,
                        acid-state,
                        base,
                        bytestring,
+                       containers,
+                       deepseq,
+                       directory,
+                       hedgehog,
                        mtl >=2.2 && <2.3,
+                       safecopy,
                        serialise,
                        tasty >=1.1 && <1.2,
+                       tasty-hedgehog,
                        tasty-quickcheck >=0.10 && <0.11
 
 executable HelloCBOR
