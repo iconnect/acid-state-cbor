@@ -33,13 +33,14 @@ flag build-examples
 
 test-suite tests
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      tests, ../test/
+  hs-source-dirs:      tests
   main-is:             Main.hs
   other-modules:       KeyValueStateMachine
                        TestState
   default-language:    Haskell2010
   ghc-options:         -Wall
   build-depends:       acid-state-cbor,
+                       acid-state-tests,
                        acid-state,
                        base,
                        bytestring,

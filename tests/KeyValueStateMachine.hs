@@ -17,7 +17,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.Acid.CBOR as AcidCBOR
 import qualified Data.Acid.Local as Local
-import           Data.Acid.StateMachineTest hiding (acidStateInterface)
+import           Data.Acid.Test.StateMachine
 import qualified Data.Map as Map
 import           Data.Typeable
 import           GHC.Generics
