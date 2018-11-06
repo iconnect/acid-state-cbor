@@ -23,24 +23,25 @@ module Data.Acid.CBOR
     , serialiseSerialisationLayer
     ) where
 
-import           Data.Acid               ( AcidState
-                                         , closeAcidState
-                                         , createCheckpoint
-                                         , createArchive
-                                         , update
-                                         , query
-                                         , EventResult
-                                         , EventState
-                                         , UpdateEvent
-                                         , QueryEvent
-                                         , Update
-                                         , Query
-                                         , IsAcidic
-                                         , liftQuery
-                                         )
-import           Data.Acid.Local         ( SerialisationLayer )
-import           Data.Acid.CBOR.Internal ( openLocalState
-                                         , openLocalStateFrom
-                                         , makeAcidic
-                                         , serialiseSerialisationLayer
-                                         )
+import           Data.Acid.Abstract       ( AcidState
+                                          , update
+                                          , query
+                                          , closeAcidState
+                                          , createCheckpoint
+                                          , createArchive
+                                          )
+import           Data.Acid.Common         ( EventResult
+                                          , EventState
+                                          , UpdateEvent
+                                          , QueryEvent
+                                          , Update
+                                          , Query
+                                          , IsAcidic
+                                          , liftQuery
+                                          )
+import           Data.Acid.Internal.Local ( SerialisationLayer )
+import           Data.Acid.CBOR.Internal  ( openLocalState
+                                          , openLocalStateFrom
+                                          , makeAcidic
+                                          , serialiseSerialisationLayer
+                                          )

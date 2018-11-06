@@ -17,7 +17,7 @@ library
                        Data.Acid.CBOR.Internal
   other-extensions:    TemplateHaskell
   build-depends:       base >=4.9 && <5,
-                       acid-state >= 0.15 && <0.17,
+                       acid-state-internal >= 0.15 && <0.17,
                        bytestring >=0.10 && <0.11,
                        cborg >=0.2 && <0.3,
                        serialise >=0.2 && <0.3,
@@ -61,7 +61,7 @@ executable HelloCBOR
   hs-source-dirs:      examples
   main-is:             HelloCBOR.hs
   build-depends:       acid-state-cbor,
-                       acid-state,
+                       acid-state-internal,
                        base,
                        mtl >=2.2 && <2.3,
                        serialise
