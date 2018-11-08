@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE BangPatterns       #-}
 
 module Data.Acid.CBOR.Internal where
 
@@ -15,7 +16,7 @@ import           Data.Acid.Common (IsAcidic)
 import           Data.Acid.Abstract (AcidState)
 import           Data.Acid.Internal.Archive as Archive (Archiver(..), Entries(..), Entry)
 import           Data.Acid.Internal.Core (Serialiser(..), MethodSerialiser(..), MethodResult, Tagged)
-import           Data.Acid.CRC (crc16)
+import           Data.Acid.CRC (crc16, crc16_incremental)
 import           Data.Acid.Internal.Local (Checkpoint(..), SerialisationLayer(..), defaultStateDirectory, openLocalStateWithSerialiser, prepareLocalStateWithSerialiser)
 import           Data.Acid.Internal.TemplateHaskell (SerialiserSpec(..), TypeAnalysis(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser)
 import qualified Data.ByteString.Lazy as Lazy
@@ -87,7 +88,11 @@ deserialiseEntries lbs
 newtype CBOREntry = CBOREntry { fromCBOREntry :: Entry }
 
 instance CBOR.Serialise CBOREntry where
-  encode (CBOREntry b) = CBOR.encodeListLen 2 <> CBOR.encodeTag 24 <> CBOR.encode b <> CBOR.encodeWord16 (crc16 b)
+  encode (CBOREntry b) =
+    let !(crc, b') = crc16_incremental b
+    in CBOR.encodeListLen 2
+         <> CBOR.encodeTag 24 <> CBOR.encode b'
+         <> CBOR.encodeWord16 crc
   decode = do
     _ <- CBOR.decodeListLen
     _ <- CBOR.decodeTag
