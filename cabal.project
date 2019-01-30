@@ -1,0 +1,7 @@
+packages: ., acid-state/*/*.cabal
+
+package acid-state-cbor
+  ghc-options: -Wall
+  flags: build-examples
+
+tests: True
