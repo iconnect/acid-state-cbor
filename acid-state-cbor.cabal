@@ -1,16 +1,22 @@
 name:                acid-state-cbor
 version:             0.1.0.0
 synopsis:            An adapter library for using acid-state with cborg/serialise
--- description:
+description:         acid-state-cbor provides a drop-in replacement for the
+                     acid-state package, but with an underlying serialisation
+                     format based on CBOR using the cborg and serialise packages.
 license:             BSD3
 license-file:        LICENSE
 author:              Adam Gundry
 maintainer:          Adam Gundry <adam@well-typed.com>
-copyright:           Copyright (C) 2018 Well-Typed LLP
+copyright:           Copyright (C) 2019 IRIS Connect
 category:            Database
 build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
+
+Source-Repository head
+  Type:              git
+  Location:          git://github.com/iconnect/acid-state-cbor.git
 
 library
   exposed-modules:     Data.Acid.CBOR,
