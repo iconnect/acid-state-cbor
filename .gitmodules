@@ -1,0 +1,3 @@
+[submodule "acid-state"]
+	path = acid-state
+	url = git@github.com:acid-state/acid-state.git
