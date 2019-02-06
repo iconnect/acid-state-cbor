@@ -12,11 +12,11 @@ import qualified Codec.CBOR.Read     as CBOR
 import qualified Codec.CBOR.Write    as CBOR
 import           Control.Exception (displayException)
 import           Control.Monad (unless, replicateM)
-import           Data.Acid.Common (IsAcidic)
-import           Data.Acid.Abstract (AcidState)
+import           Data.Acid.Internal.Common (IsAcidic)
+import           Data.Acid.Internal.Abstract (AcidState)
 import           Data.Acid.Internal.Archive as Archive (Archiver(..), Entries(..), Entry)
 import           Data.Acid.Internal.Core (Serialiser(..), MethodSerialiser(..), MethodResult, Tagged)
-import           Data.Acid.CRC (crc16, crc16_incremental)
+import           Data.Acid.Internal.CRC (crc16, crc16_incremental)
 import           Data.Acid.Internal.Local (Checkpoint(..), SerialisationLayer(..), defaultStateDirectory, openLocalStateWithSerialiser, prepareLocalStateWithSerialiser)
 import           Data.Acid.Internal.TemplateHaskell (SerialiserSpec(..), TypeAnalysis(..), mkCxtFromTyVars, analyseType, toStructName, allTyVarBndrNames, makeAcidicWithSerialiser)
 import qualified Data.ByteString.Lazy as Lazy
