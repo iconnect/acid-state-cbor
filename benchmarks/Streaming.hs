@@ -8,7 +8,7 @@ import           Control.Monad.Reader
 import           Data.Acid as Acid
 import qualified Data.Acid.CBOR as AcidCBOR
 import qualified Data.Acid.CBOR.Internal as Internal
-import qualified Data.Acid.Internal.Local as Internal
+import qualified Data.Acid.Local as Internal
 import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy
 import           Data.Typeable
