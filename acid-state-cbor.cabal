@@ -13,6 +13,7 @@ category:            Database
 build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
+tested-with:         GHC==9.8.1, GHC==9.6.3, GHC==9.4.8, GHC==9.2.8
 
 Source-Repository head
   Type:              git
