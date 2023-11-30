@@ -1,4 +1,4 @@
-packages: ., acid-state/
+packages: .
 
 package acid-state-cbor
   ghc-options: -Wall
