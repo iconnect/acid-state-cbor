@@ -1,18 +1,18 @@
+cabal-version:       2.2
 name:                acid-state-cbor
 version:             0.1.0.0
 synopsis:            An adapter library for using acid-state with cborg/serialise
 description:         acid-state-cbor provides a drop-in replacement for the
                      acid-state package, but with an underlying serialisation
                      format based on CBOR using the cborg and serialise packages.
-license:             BSD3
+license:             BSD-3-Clause
 license-file:        LICENSE
 author:              Adam Gundry
 maintainer:          Adam Gundry <adam@well-typed.com>
-copyright:           Copyright (C) 2019 IRIS Connect
+copyright:           Copyright (C) 2019-2023 IRIS Connect
 category:            Database
 build-type:          Simple
 extra-source-files:  ChangeLog.md
-cabal-version:       >=1.10
 tested-with:         GHC==9.8.1, GHC==9.6.3, GHC==9.4.8, GHC==9.2.8
 
 Source-Repository head
@@ -27,7 +27,7 @@ library
   build-depends:       base >=4.9 && <5,
                        acid-state >= 0.16 && <0.17,
                        array >= 0.5 && <0.6,
-                       bytestring >=0.10 && <0.12,
+                       bytestring >=0.10 && <0.13,
                        cborg >=0.2 && <0.3,
                        serialise >=0.2 && <0.3,
                        template-haskell >=2.11 && <2.22
@@ -40,7 +40,17 @@ flag build-examples
   manual: True
   default: False
 
+common deps
+  build-depends:       acid-state-cbor,
+                       acid-state,
+                       base,
+                       bytestring,
+                       mtl >=2.2 && <2.4,
+                       safecopy >= 0.6 && <0.11,
+                       serialise
+
 test-suite tests
+  import:              deps
   type:                exitcode-stdio-1.0
   hs-source-dirs:      tests
   main-is:             Main.hs
@@ -49,58 +59,37 @@ test-suite tests
                        Data.Acid.Test.StateMachine
   default-language:    Haskell2010
   ghc-options:         -Wall
-  build-depends:       acid-state-cbor,
-                       acid-state,
-                       base,
-                       bytestring,
-                       containers,
+  build-depends:       containers,
                        deepseq,
                        directory,
                        hedgehog,
-                       mtl >=2.2 && <2.3,
-                       safecopy,
-                       serialise,
-                       tasty >=1.1 && <1.2,
+                       tasty >=1.1 && <1.6,
                        tasty-hedgehog,
                        tasty-quickcheck >=0.10 && <0.11
 
 executable HelloCBOR
+  import:              deps
   if !flag(build-examples)
     buildable: False
   hs-source-dirs:      examples
   main-is:             HelloCBOR.hs
-  build-depends:       acid-state-cbor,
-                       acid-state,
-                       base,
-                       mtl >=2.2 && <2.3,
-                       serialise
   default-language:    Haskell2010
+  ghc-options:         -Wall -rtsopts
 
 executable MultipleBackends
+  import:              deps
   if !flag(build-examples)
     buildable: False
   hs-source-dirs:      examples
   main-is:             MultipleBackends.hs
-  build-depends:       acid-state-cbor,
-                       acid-state,
-                       base,
-                       mtl >=2.2 && <2.3,
-                       safecopy >= 0.6 && <0.11,
-                       serialise
   default-language:    Haskell2010
-
+  ghc-options:         -Wall -rtsopts
 
 benchmark Streaming
+  import:              deps
   hs-source-dirs:      benchmarks
   main-is:             Streaming.hs
-  build-depends:       acid-state-cbor,
-                       acid-state,
-                       base,
-                       bytestring,
-                       directory,
-                       mtl,
-                       safecopy,
-                       serialise
+  build-depends:       directory
   default-language:    Haskell2010
   type:                exitcode-stdio-1.0
   ghc-options:         -Wall -rtsopts
